@@ -3,26 +3,18 @@
  * API End Point Search Category by Name
  *
  * @param object $data Name of Category for searching.
- * @return object category
+ * @return array of category tree and all categories data in hierarchy
  */
 function search_category_by_name( $data ) {
 	global $wpdb;
+	$categories = array();
+	$category_tree = array();
 	$cat_name = urldecode($data->get_param( 'name' ));
 
 	//Strict search type with 100% of coincidence
 	$category = get_term_by( 'name', urldecode($cat_name), 'product_cat' );
 
-	// //Search with like type
-	// $category = $wpdb->get_results("
- //        SELECT DISTINCT t.*, tt.* 
- //        FROM {$wpdb->prefix}terms AS t 
- //        LEFT JOIN {$wpdb->prefix}termmeta ON ( t.term_id = {$wpdb->prefix}termmeta.term_id AND {$wpdb->prefix}termmeta.meta_key='order') 
- //        INNER JOIN {$wpdb->prefix}term_taxonomy AS tt ON t.term_id = tt.term_id 
- //        WHERE tt.taxonomy IN ('product_cat') AND t.name LIKE '%{$cat_name}%'
- //            AND ( ( {$wpdb->prefix}termmeta.meta_key = 'order' OR {$wpdb->prefix}termmeta.meta_key IS NULL ) ) 
- //        ORDER BY {$wpdb->prefix}termmeta.meta_value ASC, t.name ASC
- //    ");
-
+	//if null result
 	if (empty($category)) {
 		return array(
 			"code" => "Category not found",
@@ -32,8 +24,35 @@ function search_category_by_name( $data ) {
 		    )
 		);
 	}
+	
+	//Save category found in categories array
+	$categories[$category->term_id] = (object) [
+	    'term_id' => $category->term_id,
+	    'name' => $category->name
+	];
 
-	return $category;
+	//Find parent of category found
+	$parents_ids = get_ancestors( $category->term_id, 'product_cat' );
+	foreach ( array_reverse( $parents_ids ) as $term_id ) {
+		$parent_data = get_term( $term_id, 'product_cat' );
+
+		//Save parent category in category tree
+		$category_tree[] = $parent_data->term_id;
+
+		//Save category parent in categories array
+		$categories[$parent_data->term_id] = (object) [
+		    'term_id' => $parent_data->term_id,
+		    'name' => $parent_data->name
+		];
+    }
+
+    //Save category found in category tree
+    $category_tree[] = $category->term_id;
+
+	return array(
+		'tree' => implode (",", $category_tree),
+		'categories' => $categories
+	);
 }
 
 add_action( 'rest_api_init', function () {
