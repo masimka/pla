@@ -42,12 +42,12 @@ function search_taxonomy_by_name_type($data) {
 			if (!empty($parents_ids))
 				break;
 			else
-				$taxonomies[] = (object) [
+				$taxonomies[] = array (
 				    'id' => $t->term_id,
 				    'name' => $t->name,
 				    'parent' => 0,
 				    'nameparent' => ''
-				];
+				);
 		}
 
 		//Find category parent`s tree
@@ -58,12 +58,12 @@ function search_taxonomy_by_name_type($data) {
 			if ($key == 0 && $parent_data->name != $parent) break;
 
 			//Save category parent in categories array
-			$taxonomies[] = (object) [
+			$taxonomies[] = array (
 			    'id' => $t->term_id,
 			    'name' => $t->name,
 			    'parent' => $parent_data->term_id,
 			    'nameparent' => $parent_data->name
-			];
+			);
 
 			//Clone parent data for create searchable category
 			$t = $parent_data;			
@@ -72,14 +72,14 @@ function search_taxonomy_by_name_type($data) {
 	    //Save result if not null
 		if (!empty($taxonomies)) {
 			if (!empty($parent)) {
-				$taxonomies[] = (object) [
+				$taxonomies[] = array (
 				    'id' => $parent_data->term_id,
 				    'name' => $parent_data->name,
 				    'parent' => 0,
 				    'nameparent' => ''
-				];
+				);
 			}
-			$result[] = $taxonomies;
+			$result[] = (object)['item' => $taxonomies];
 		}
 	}
 
