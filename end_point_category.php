@@ -30,10 +30,8 @@ function search_taxonomy_by_name_type($data) {
 		return api_error_404($error, $code);
 	}
 
-	$result = array();
+	$taxonomies = array();
 	foreach ($taxonomy as $t) {
-		$taxonomies = array();
-
 		//Find parent of category found
 		$parents_ids = get_ancestors( $t->term_id, $type );
 
@@ -55,7 +53,7 @@ function search_taxonomy_by_name_type($data) {
 			$parent_data = get_term( $term_id, $type );
 
 			//Validate the nearest parent
-			if ($key == 0 && $parent_data->name != $parent) break;
+			if ($key == 0 && strtolower($parent_data->name) != strtolower($parent)) break;
 
 			//Save category parent in categories array
 			$taxonomies[] = array (
@@ -64,33 +62,33 @@ function search_taxonomy_by_name_type($data) {
 			    'parent' => $parent_data->term_id,
 			    'nameparent' => $parent_data->name
 			);
-
+			break;
 			//Clone parent data for create searchable category
 			$t = $parent_data;			
 	    }
 
 	    //Save result if not null
 		if (!empty($taxonomies)) {
-			if (!empty($parent)) {
-				$taxonomies[] = array (
-				    'id' => $parent_data->term_id,
-				    'name' => $parent_data->name,
-				    'parent' => 0,
-				    'nameparent' => ''
-				);
-			}
-			$result[] = (object)['item' => $taxonomies];
+			// if (!empty($parent)) {
+			// 	$taxonomies[] = array (
+			// 	    'id' => $parent_data->term_id,
+			// 	    'name' => $parent_data->name,
+			// 	    'parent' => 0,
+			// 	    'nameparent' => ''
+			// 	);
+			// }
 		}
 	}
 
+
 	//if null result return 401 status
-	if (empty($result)) {
+	if (empty($taxonomies)) {
 		$error = "The parent '{$parent}' of taxonomy '{$tax_name}' is not found";
 		$code = 2;
 		return api_error_404($error, $code);
 	}
-	
-	return $result;
+
+	return (object)['item' => $taxonomies];
 }
 
 /**
