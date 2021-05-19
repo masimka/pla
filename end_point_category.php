@@ -1,4 +1,5 @@
 <?php
+//START API`s HOOK
 /**
  * API End Point Search Category by Name
  *
@@ -53,7 +54,7 @@ function search_taxonomy_by_name_type($data) {
 			$parent_data = get_term( $term_id, $type );
 
 			//Validate the nearest parent
-			if ($key == 0 && strtolower($parent_data->name) != strtolower($parent)) break;
+			if ($key == 0 && strtolower(htmlspecialchars_decode($parent_data->name)) != strtolower($parent)) break;
 
 			//Save category parent in categories array
 			$taxonomies[] = array (
@@ -94,39 +95,87 @@ function search_taxonomy_by_name_type($data) {
 /**
  * API End Point Search attributes by Name
  *
- * @param object $data Name of Attribute and value of attribute.
- * @return array of attribute data with value data
+ * @param object $data Name of Attribute.
+ * @return id of attribute
  */
-function search_attributes_by_name_value($data) {
+function search_attributes_by_name($data) {
 	$name = urldecode($data->get_param('name'));
-	$value = urldecode($data->get_param('value'));
 
-	//Get taxonomy id
-	$taxonomy_id = wc_attribute_taxonomy_id_by_name($name);
+	$taxonomies = wc_get_attribute_taxonomies();
 
-	if (empty($taxonomy_id)) {
+	if (empty($taxonomies)) {
 		$error = "The attribute '{$name}' is not found";
 		$code = 1;
 		return api_error_404($error, $code);
 	}
 
-	//Get taxonomy slag for attribute searching
-	$taxonomy_slag = wc_attribute_taxonomy_name($name);
-	$attribute = get_term_by('name', $value, $taxonomy_slag);
+	$attrs = array();
+	foreach ($taxonomies as $value) {
+		if ($value->attribute_label == $name) {
+			$attrs[] = (object) ["id" => $value->attribute_id];
+		}
+	}
+	
+	if (empty($attrs)) {
+		$error = "The attribute '{$name}' is not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	return $attrs;
+}
+
+/**
+ * API End Point Search attributes by Name
+ *
+ * @param object $data Name of Attribute and value of attribute.
+ * @return array of attribute data with value data
+ */
+function search_attributes_by_id_value($data) {
+	$id = urldecode($data->get_param('id'));
+	$value = urldecode($data->get_param('value'));
+
+	if (empty($id)) {
+		$error = "The attribute '{$id}' is not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	//Get taxonomy data for attribute searching
+	$term_object = wc_get_attribute( $id );
+
+	if (empty($term_object)) {
+		$error = "The attribute '{$id}' is not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	//Get term data for attribute searching
+	$args = array(
+		'get'                    => 'all',
+		'name'                   => $value,
+		'taxonomy'               => $term_object->slug,
+		'update_term_meta_cache' => false,
+		'orderby'                => 'none',
+		'suppress_filter'        => true,
+	);
+	$attributes = get_terms( $args );
 
 	//if null result
-	if (empty($attribute)) {
+	if (empty($attributes)) {
 		$error = "The value '{$value}' is not found";
 		$code = 2;
 		return api_error_404($error, $code);
 	}
+
+	$result = array();
+	foreach ($attributes as $v) {
+		$result[] = (object) [
+		    'id' => $v->term_id
+		];
+	}
 	
-	return (object) [
-	    'attributeid' => $taxonomy_id,
-	    'attributename' => $name,
-	    'valueid' => $attribute->term_id,
-	    'valuename' => $value
-	];
+	return $result;
 }
 
 /**
@@ -147,15 +196,23 @@ function api_error_404($error = '', $code = 0) {
 
 //API Hook of custom Endpoint for product categories
 add_action('rest_api_init', function () {
-	register_rest_route('wc/v3/products', '/taxonomy_by_name_type/(?P<type>.+)/(?P<name>.+)', array(
+	register_rest_route('wc/v3/gp_products', '/taxonomy_by_name_type/(?P<type>.+)/(?P<name>.+)', array(
 		'methods'  => WP_REST_Server::READABLE,
 		'callback' => 'search_taxonomy_by_name_type'
 	));
 });
 
 add_action('rest_api_init', function () {
-	register_rest_route('wc/v3/products', '/attribute_by_name_value/(?P<name>.+)/(?P<value>.+)', array(
+	register_rest_route('wc/v3/gp_products', '/attribute_by_name/(?P<name>.+)', array(
 		'methods'  => WP_REST_Server::READABLE,
-		'callback' => 'search_attributes_by_name_value'
+		'callback' => 'search_attributes_by_name'
 	));
 });
+
+add_action('rest_api_init', function () {
+	register_rest_route('wc/v3/gp_products', '/attribute_by_id_value/(?P<id>\d+)/(?P<value>.+)', array(
+		'methods'  => WP_REST_Server::READABLE,
+		'callback' => 'search_attributes_by_id_value'
+	));
+});
+//END API`s HOOK
