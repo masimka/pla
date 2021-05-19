@@ -179,6 +179,97 @@ function search_attributes_by_id_value($data) {
 }
 
 /**
+ * API End Point assign brands to product
+ *
+ * @param object $data Id of product and json of array of ids of brands.
+ * @return array of inserted id`s data
+ */
+function assign_brand_to_product($data) {
+	$id = urldecode($data->get_param('id'));
+	$ids_brands = json_decode(urldecode($data->get_param('ids_brands')));
+
+	$product = wc_get_product($id);
+
+	if (empty($product)) {
+		$error = "The product '{$id}' is not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	if (empty($ids_brands)) {
+		$error = "The brands '{$data->get_param('ids_brands')}' are not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	//Get term data for brand
+	$args = array(
+		'get'                    => 'all',
+		'taxonomy'               => 'product_brand',
+		'update_term_meta_cache' => false,
+		'orderby'                => 'none',
+		'suppress_filter'        => true,
+		'include' 				 => $ids_brands
+	);
+	$brands = get_terms( $args );
+
+	if (empty($brands)) {
+		$error = "The brand '{$data->get_param('ids_brands')}' are not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+    $inserted_ids = wp_set_object_terms($id, $ids_brands, 'product_brand');
+
+	//if null result
+	if (empty($inserted_ids)) {
+		$error = "Error, the brands are not inserted";
+		$code = 2;
+		return api_error_404($error, $code);
+	}
+
+	return (object) [
+	    'inserted_ids' => $inserted_ids
+	];
+}
+
+/**
+ * API End Point assign brands to product
+ *
+ * @param object $data data of brand to insert.
+ * @return array of inserted id`s data
+ */
+function add_new_brand($data) {
+	$brand = json_decode(urldecode($data->get_param('brand')));
+
+	if (empty($brand->name)) {
+		$error = "The brand data cant`t be null";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	$args = array(
+		'name' => $brand->name
+	);
+
+	if (!empty($brand->description)) $args['description'] = $brand->description;
+	if (!empty($brand->parent) && is_integer($brand->parent) && $brand->parent > 0) $args['parent'] = $brand->parent;
+	if (!empty($brand->slug)) $args['slug'] = $brand->slug;
+
+	$term = wp_insert_term($brand->name, 'product_brand', $args);
+
+	if (empty($term)) {
+		$error = "Error, the brand are not inserted";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	return (object) [
+	    'term' => $term
+	];
+}
+
+/**
  * API End Point not found
  *
  * @param object $data Name of Category for searching and Parent Category name.
@@ -198,21 +289,35 @@ function api_error_404($error = '', $code = 0) {
 add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/taxonomy_by_name_type/(?P<type>.+)/(?P<name>.+)', array(
 		'methods'  => WP_REST_Server::READABLE,
-		'callback' => 'search_taxonomy_by_name_type'
+		'callback' => 'search_taxonomy_by_name_type',
 	));
 });
 
 add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/attribute_by_name/(?P<name>.+)', array(
 		'methods'  => WP_REST_Server::READABLE,
-		'callback' => 'search_attributes_by_name'
+		'callback' => 'search_attributes_by_name',
 	));
 });
 
 add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/attribute_by_id_value/(?P<id>\d+)/(?P<value>.+)', array(
 		'methods'  => WP_REST_Server::READABLE,
-		'callback' => 'search_attributes_by_id_value'
+		'callback' => 'search_attributes_by_id_value',
+	));
+});
+
+add_action('rest_api_init', function () {
+	register_rest_route('wc/v3/gp_products', '/assign_brand_to_product/(?P<id>\d+)/(?P<ids_brands>.+)', array(
+		'methods'  => WP_REST_Server::EDITABLE,
+		'callback' => 'assign_brand_to_product',
+	));
+});
+
+add_action('rest_api_init', function () {
+	register_rest_route('wc/v3/gp_products', '/add_new_brand/(?P<brand>.+)', array(
+		'methods'  => WP_REST_Server::EDITABLE,
+		'callback' => 'add_new_brand',
 	));
 });
 //END API`s HOOK
