@@ -144,11 +144,11 @@ function search_attributes_by_slug($data) {
 
 	$attrs = array();
 	foreach ($taxonomies as $value) {
-		if ('pa_' . $value->attribute_name == $slug) {
+		if ($value->attribute_name == $slug) {
 			return (object) [
 				"id" => $value->attribute_id,
 				"name" => $value->attribute_label,
-				"slug" => 'pa_' . $value->attribute_name
+				"slug" => $value->attribute_name
 			];
 		}
 	}
