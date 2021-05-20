@@ -269,6 +269,22 @@ function add_new_brand($data) {
 	];
 }
 
+/**
+ * API End Point not found
+ *
+ * @param object $data Name of Category for searching and Parent Category name.
+ * @return array of category tree and all categories data in hierarchy
+ */
+function api_error_404($error = '', $code = 0) {
+	return array(
+		"code" => $code,
+	    "message" => $error,
+	    "data" => array(
+	        "status" => 404
+	    )
+	);
+}
+
 //Add filter for brands
 add_filter( 'woocommerce_rest_prepare_product_object', 'add_brands_to_product', 10, 3 ); 
 
@@ -292,13 +308,7 @@ add_filter( 'woocommerce_rest_check_permissions',
 	function ( $permission, $context, $object_id, $post_type ) {
 		if ($post_type == 'product_tag' ||
 			$post_type == 'attributes') {
-			$consumer = get_user_data_by_consumer_key( $_SERVER['PHP_AUTH_USER'] );
-			$user = get_userdata( $consumer->user_id );
-
-			if ( in_array( 'seller', (array) $user->roles ) || 
-				 in_array( 'vendor_catalog', (array) $user->roles ) ) {
-			    return true;
-			}
+		    return get_api_user();
 		}
 		return $permission;
 	}, 10, 4
@@ -315,20 +325,77 @@ function get_user_data_by_consumer_key( $consumer_key ) {
 	return $user;
 }
 
-/**
- * API End Point not found
- *
- * @param object $data Name of Category for searching and Parent Category name.
- * @return array of category tree and all categories data in hierarchy
- */
-function api_error_404($error = '', $code = 0) {
-	return array(
-		"code" => $code,
-	    "message" => $error,
-	    "data" => array(
-	        "status" => 404
-	    )
-	);
+function get_api_user() {
+	$key = get_oauth_parameters();
+
+	if (!empty($_SERVER['PHP_AUTH_USER'])) {
+		$key = $_SERVER['PHP_AUTH_USER'];
+	} 
+
+	$consumer = get_user_data_by_consumer_key($key);
+	$user = get_userdata( $consumer->user_id );
+
+	if ( in_array( 'administrator', (array) $user->roles ) ||
+		 in_array( 'seller', (array) $user->roles ) || 
+		 in_array( 'vendor_catalog', (array) $user->roles ) ) {
+	    return true;
+	}
+	return false;
+}
+
+function get_oauth_parameters() {
+	$params = array_merge( $_GET, $_POST ); // WPCS: CSRF ok.
+	$params = wp_unslash( $params );
+	$header = get_authorization_header();
+
+	if ( ! empty( $header ) ) {
+		// Trim leading spaces.
+		$header        = trim( $header );
+		$header_params = parse_header( $header );
+
+		if ( ! empty( $header_params ) ) {
+			$params = array_merge( $params, $header_params );
+		}
+	}
+
+	return $params['oauth_consumer_key'];
+}
+
+function get_authorization_header() {
+	if ( ! empty( $_SERVER['HTTP_AUTHORIZATION'] ) ) {
+		return wp_unslash( $_SERVER['HTTP_AUTHORIZATION'] ); // WPCS: sanitization ok.
+	}
+
+	if ( function_exists( 'getallheaders' ) ) {
+		$headers = getallheaders();
+		// Check for the authoization header case-insensitively.
+		foreach ( $headers as $key => $value ) {
+			if ( 'authorization' === strtolower( $key ) ) {
+				return $value;
+			}
+		}
+	}
+
+	return '';
+}
+
+function parse_header( $header ) {
+	if ( 'OAuth ' !== substr( $header, 0, 6 ) ) {
+		return array();
+	}
+
+	// From OAuth PHP library, used under MIT license.
+	$params = array();
+	if ( preg_match_all( '/(oauth_[a-z_-]*)=(:?"([^"]*)"|([^,]*))/', $header, $matches ) ) {
+		foreach ( $matches[1] as $i => $h ) {
+			$params[ $h ] = urldecode( empty( $matches[3][ $i ] ) ? $matches[4][ $i ] : $matches[3][ $i ] );
+		}
+		if ( isset( $params['realm'] ) ) {
+			unset( $params['realm'] );
+		}
+	}
+
+	return $params;
 }
 
 //API Hook of custom Endpoint for product categories
@@ -336,6 +403,7 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/taxonomy_by_name_type/(?P<type>.+)/(?P<name>.+)', array(
 		'methods'  => WP_REST_Server::READABLE,
 		'callback' => 'search_taxonomy_by_name_type',
+		'permission_callback' => function () {return get_api_user();}
 	));
 });
 
@@ -343,6 +411,7 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/attribute_by_name/(?P<name>.+)', array(
 		'methods'  => WP_REST_Server::READABLE,
 		'callback' => 'search_attributes_by_name',
+		'permission_callback' => function () {return get_api_user();}
 	));
 });
 
@@ -350,6 +419,7 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/attribute_by_id_value/(?P<id>\d+)/(?P<value>.+)', array(
 		'methods'  => WP_REST_Server::READABLE,
 		'callback' => 'search_attributes_by_id_value',
+		'permission_callback' => function () {return get_api_user();}
 	));
 });
 
@@ -357,6 +427,7 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/assign_brand_to_product/(?P<id>\d+)/(?P<ids_brands>.+)', array(
 		'methods'  => WP_REST_Server::EDITABLE,
 		'callback' => 'assign_brand_to_product',
+		'permission_callback' => function () {return get_api_user();}
 	));
 });
 
@@ -364,6 +435,7 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/add_new_brand/(?P<brand>.+)', array(
 		'methods'  => WP_REST_Server::EDITABLE,
 		'callback' => 'add_new_brand',
+		'permission_callback' => function () {return get_api_user();}
 	));
 });
 //END API`s HOOK
