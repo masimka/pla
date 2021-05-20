@@ -300,6 +300,7 @@ add_filter( 'woocommerce_rest_check_permissions',
 			    return true;
 			}
 		}
+		return $permission;
 	}, 10, 4
 );
 
