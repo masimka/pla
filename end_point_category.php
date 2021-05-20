@@ -269,6 +269,25 @@ function add_new_brand($data) {
 	];
 }
 
+//Add filter for brands
+add_filter( 'woocommerce_rest_prepare_product_object', 'add_brands_to_product', 10, 3 ); 
+
+function add_brands_to_product($response, $object, $request) {
+	$terms = get_the_terms( $response->data['id'], 'product_brand' );
+	if (!empty($terms)) {
+		foreach ($terms as $t) {
+			$response->data['brands'][] = (object) [
+				"id" => $t->term_id,
+				"name" => $t->name,
+			];
+		}
+	} else {
+		$response->data['brands'] = array();
+	}
+
+	return $response; 
+}
+
 /**
  * API End Point not found
  *
