@@ -163,6 +163,36 @@ function search_attributes_by_slug($data) {
 }
 
 /**
+ * API End Point Search Brands by Slug
+ *
+ * @param object $data Slug of Brand.
+ * @return object data of attribute
+ */
+function search_brands_by_slug($data) {
+	$slug = urldecode($data->get_param('slug'));
+
+	$taxonomy = get_terms(array(
+		'get' => 'all',
+	    'taxonomy' => 'product_brand',
+	    'slug' => urldecode($slug)
+	));
+
+	if (empty($taxonomy)) {
+		$error = "The brand '{$slug}' is not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	return (object) [
+		"id" => $taxonomy[0]->term_id,
+		"name" => $taxonomy[0]->name,
+		"slug" => $taxonomy[0]->slug,
+		"description" => $taxonomy[0]->description,
+		"parent" => $taxonomy[0]->parent
+	];
+}
+
+/**
  * API End Point Search attributes by Name
  *
  * @param object $data Name of Attribute and value of attribute.
@@ -326,7 +356,25 @@ function api_error_404($error = '', $code = 0) {
 add_filter( 'woocommerce_rest_prepare_product_object', 'add_brands_to_product', 10, 3 ); 
 
 function add_brands_to_product($response, $object, $request) {
+
+	//Add brands data if POST
+	if ($request->get_method() == 'POST') {
+		$brands = $request->get_params()['brands'];
+		$ids_brands = array();
+		
+		if (!empty($brands)) {
+			foreach ($brands as $b) {
+				$ids_brands[] = $b['id'];
+			}
+		}
+
+		if (!empty($ids_brands)) {
+			wp_set_object_terms($response->data['id'], $ids_brands, 'product_brand');
+		}
+	}
+
 	$terms = get_the_terms( $response->data['id'], 'product_brand' );
+
 	if (!empty($terms)) {
 		foreach ($terms as $t) {
 			$response->data['brands'][] = (object) [
@@ -458,6 +506,14 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/attribute_by_slug/(?P<slug>.+)', array(
 		'methods'  => WP_REST_Server::READABLE,
 		'callback' => 'search_attributes_by_slug',
+		'permission_callback' => function () {return get_api_user();}
+	));
+});
+
+add_action('rest_api_init', function () {
+	register_rest_route('wc/v3/gp_products', '/brand_by_slug/(?P<slug>.+)', array(
+		'methods'  => WP_REST_Server::READABLE,
+		'callback' => 'search_brands_by_slug',
 		'permission_callback' => function () {return get_api_user();}
 	));
 });
