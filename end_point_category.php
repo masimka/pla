@@ -307,13 +307,14 @@ function add_brands_to_product($response, $object, $request) {
 add_filter( 'woocommerce_rest_check_permissions',
 	function ( $permission, $context, $object_id, $post_type ) {
 		if ($post_type == 'product_tag' ||
-			$post_type == 'attributes') {
+			$post_type == 'attributes' ||
+			strpos($post_type, 'pa_') !== false
+		) {
 		    return get_api_user();
 		}
 		return $permission;
 	}, 10, 4
 );
-
 function get_user_data_by_consumer_key( $consumer_key ) {
 	global $wpdb;
 	$consumer_key = wc_api_hash( sanitize_text_field( $consumer_key ) );
