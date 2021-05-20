@@ -126,6 +126,43 @@ function search_attributes_by_name($data) {
 }
 
 /**
+ * API End Point Search attributes by Slug
+ *
+ * @param object $data Slug of Attribute.
+ * @return object data of attribute
+ */
+function search_attributes_by_slug($data) {
+	$slug = urldecode($data->get_param('slug'));
+
+	$taxonomies = wc_get_attribute_taxonomies();
+
+	if (empty($taxonomies)) {
+		$error = "The attribute '{$slug}' is not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	$attrs = array();
+	foreach ($taxonomies as $value) {
+		if ('pa_' . $value->attribute_name == $slug) {
+			return (object) [
+				"id" => $value->attribute_id,
+				"name" => $value->attribute_label,
+				"slug" => 'pa_' . $value->attribute_name
+			];
+		}
+	}
+	
+	if (empty($attrs)) {
+		$error = "The attribute '{$slug}' is not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	return $attrs;
+}
+
+/**
  * API End Point Search attributes by Name
  *
  * @param object $data Name of Attribute and value of attribute.
@@ -315,6 +352,7 @@ add_filter( 'woocommerce_rest_check_permissions',
 		return $permission;
 	}, 10, 4
 );
+
 function get_user_data_by_consumer_key( $consumer_key ) {
 	global $wpdb;
 	$consumer_key = wc_api_hash( sanitize_text_field( $consumer_key ) );
@@ -412,6 +450,14 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/attribute_by_name/(?P<name>.+)', array(
 		'methods'  => WP_REST_Server::READABLE,
 		'callback' => 'search_attributes_by_name',
+		'permission_callback' => function () {return get_api_user();}
+	));
+});
+
+add_action('rest_api_init', function () {
+	register_rest_route('wc/v3/gp_products', '/attribute_by_slug/(?P<slug>.+)', array(
+		'methods'  => WP_REST_Server::READABLE,
+		'callback' => 'search_attributes_by_slug',
 		'permission_callback' => function () {return get_api_user();}
 	));
 });
