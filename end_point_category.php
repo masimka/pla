@@ -288,6 +288,32 @@ function add_brands_to_product($response, $object, $request) {
 	return $response; 
 }
 
+add_filter( 'woocommerce_rest_check_permissions',
+	function ( $permission, $context, $object_id, $post_type ) {
+		if ($post_type == 'product_tag' ||
+			$post_type == 'attributes') {
+			$consumer = get_user_data_by_consumer_key( $_SERVER['PHP_AUTH_USER'] );
+			$user = get_userdata( $consumer->user_id );
+
+			if ( in_array( 'seller', (array) $user->roles ) || 
+				 in_array( 'vendor_catalog', (array) $user->roles ) ) {
+			    return true;
+			}
+		}
+	}, 10, 4
+);
+
+function get_user_data_by_consumer_key( $consumer_key ) {
+	global $wpdb;
+	$consumer_key = wc_api_hash( sanitize_text_field( $consumer_key ) );
+	$user         = $wpdb->get_row($wpdb->prepare("
+						SELECT key_id, user_id, permissions, consumer_key, consumer_secret, nonces
+						FROM {$wpdb->prefix}woocommerce_api_keys
+						WHERE consumer_key = %s", $consumer_key)
+					);
+	return $user;
+}
+
 /**
  * API End Point not found
  *
