@@ -166,7 +166,7 @@ function search_attributes_by_slug($data) {
  * API End Point Search Brands by Slug
  *
  * @param object $data Slug of Brand.
- * @return object data of attribute
+ * @return object data of brand
  */
 function search_brands_by_slug($data) {
 	$slug = urldecode($data->get_param('slug'));
@@ -190,6 +190,36 @@ function search_brands_by_slug($data) {
 		"description" => $taxonomy[0]->description,
 		"parent" => $taxonomy[0]->parent
 	];
+}
+
+/**
+ * API End Point Get all Brands
+ *
+ * @return object data of brand
+ */
+function get_brands() {
+	$taxonomy = get_terms(array(
+		'get' => 'all',
+	    'taxonomy' => 'product_brand'
+	));
+
+	if (empty($taxonomy)) {
+		$error = "No brands are found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	foreach ($taxonomy as $t) {
+		$result[] = (object) [
+			"id" => $t->term_id,
+			"name" => $t->name,
+			"slug" => $t->slug,
+			"description" => $t->description,
+			"parent" => $t->parent
+		];
+	}
+
+	return $result;
 }
 
 /**
@@ -514,6 +544,14 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/brand_by_slug/(?P<slug>.+)', array(
 		'methods'  => WP_REST_Server::READABLE,
 		'callback' => 'search_brands_by_slug',
+		'permission_callback' => function () {return get_api_user();}
+	));
+});
+
+add_action('rest_api_init', function () {
+	register_rest_route('wc/v3/gp_products', '/brands', array(
+		'methods'  => WP_REST_Server::READABLE,
+		'callback' => 'get_brands',
 		'permission_callback' => function () {return get_api_user();}
 	));
 });
