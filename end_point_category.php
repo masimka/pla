@@ -355,14 +355,24 @@ function add_new_brand($data) {
 
 	$term = wp_insert_term($brand->name, 'product_brand', $args);
 
-	if (empty($term)) {
-		$error = "Error, the brand are not inserted";
-		$code = 1;
-		return api_error_404($error, $code);
+	if (!empty($term->error_data['term_exists'])) {
+		$term =  get_term_by( 'id', $term->error_data['term_exists'], 'product_brand' );
+		return (object) [
+		    "id" => $term->term_id,
+			"name" => $term->name,
+			"slug" => $term->slug,
+			"description" => $term->description,
+			"parent" => $term->parent
+		];
 	}
 
+	$term =  get_term_by( 'id', $term['term_id'], 'product_brand' );
 	return (object) [
-	    'term' => $term
+	    "id" => $term->term_id,
+		"name" => $term->name,
+		"slug" => $term->slug,
+		"description" => $term->description,
+		"parent" => $term->parent
 	];
 }
 
