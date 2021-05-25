@@ -166,7 +166,7 @@ function search_attributes_by_slug($data) {
  * API End Point Search Brands by Slug
  *
  * @param object $data Slug of Brand.
- * @return object data of brand
+ * @return object data of attribute
  */
 function search_brands_by_slug($data) {
 	$slug = urldecode($data->get_param('slug'));
@@ -191,6 +191,7 @@ function search_brands_by_slug($data) {
 		"parent" => $taxonomy[0]->parent
 	];
 }
+
 
 /**
  * API End Point Get all Brands
@@ -340,7 +341,7 @@ function add_new_brand($data) {
 	$brand = json_decode(urldecode($data->get_param('brand')));
 
 	if (empty($brand->name)) {
-		$error = "The brand data cant`t be null";
+		$error = "The brand data can`t be null";
 		$code = 1;
 		return api_error_404($error, $code);
 	}
@@ -374,6 +375,56 @@ function add_new_brand($data) {
 		"description" => $term->description,
 		"parent" => $term->parent
 	];
+}
+
+/**
+ * API End Point get product data by slugs
+ *
+ * @param object $data data of brand to insert.
+ * @return array of inserted id`s data
+ */
+function get_products_by_slugs($data) {
+	$slugs = $data->get_params('JSON');
+	
+	if (empty($slugs)) {
+		$error = "The products are not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	$products_data = array();
+	$i = 0;
+	foreach ($slugs as $s) {
+		$product = get_page_by_path( $s['slug'], OBJECT, 'product' );
+
+		if (!empty($product)) {
+			$products_data[$i] = (object) [
+			    "id" => $product->ID,
+				"slug" => $s['slug'],
+				"description" => $product->post_content
+			];
+
+			$product = new WC_product($product->ID);
+			$image_id = $product->get_image_id();
+
+			$products_data[$i]->images[] = (object) [
+			    "id" => intval($image_id),
+				"alt" =>  get_post_meta($image_id, '_wp_attachment_image_alt', TRUE ),
+			];
+			
+			$image_ids = $product->get_gallery_image_ids($product->ID);
+			foreach($image_ids as $iid) {
+	          	// Display the image URL
+	        	$products_data[$i]->images[] = (object) [
+				    "id" => $iid,
+					"alt" =>  get_post_meta($iid, '_wp_attachment_image_alt', TRUE ),
+				];
+	        }
+		}
+		$i++;
+	}
+
+	return $products_data;
 }
 
 /**
@@ -586,6 +637,14 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/add_new_brand/(?P<brand>.+)', array(
 		'methods'  => WP_REST_Server::EDITABLE,
 		'callback' => 'add_new_brand',
+		'permission_callback' => function () {return get_api_user();}
+	));
+});
+
+add_action('rest_api_init', function () {
+	register_rest_route('wc/v3/gp_products', '/get_products_by_slugs', array(
+		'methods'  => WP_REST_Server::READABLE,
+		'callback' => 'get_products_by_slugs',
 		'permission_callback' => function () {return get_api_user();}
 	));
 });
