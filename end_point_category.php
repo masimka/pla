@@ -396,15 +396,15 @@ function get_products_by_slugs($data) {
 	$i = 0;
 	foreach ($slugs as $s) {
 		$product = get_page_by_path( $s['slug'], OBJECT, 'product' );
+		$product = new WC_product($product->ID);
 
 		if (!empty($product)) {
 			$products_data[$i] = (object) [
 			    "id" => $product->ID,
 				"slug" => $s['slug'],
-				"description" => $product->post_content
+				"sku" => $product->sku
 			];
 
-			$product = new WC_product($product->ID);
 			$image_id = $product->get_image_id();
 
 			$products_data[$i]->images[] = (object) [
