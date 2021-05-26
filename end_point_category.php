@@ -428,6 +428,63 @@ function get_products_by_slugs($data) {
 }
 
 /**
+ * API End Point get variations data by parent id
+ *
+ * @param object $data data of parent ids.
+ * @return array of product data
+ */
+function get_variations_by_parent_ids($data) {
+	$id = $data->get_param('id');
+	
+	if (empty($id)) {
+		$error = "The products are not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	$variations_data = array();
+	$args = array(
+	    'post_type'     => 'product_variation',
+	    'post_status'   => array( 'private', 'publish' ),
+	    'numberposts'   => -1,
+	    'orderby'       => 'menu_order',
+	    'order'         => 'asc',
+	    'post_parent'   => $id // get parent post-ID
+	);
+	$variations = get_posts( $args );
+
+	$i = 0;
+	foreach ( $variations as $variation ) {
+	    // get variations meta
+	    $product_variation = new WC_Product_Variation($variation->ID);
+
+	    if (!empty($product_variation)) {
+	    	$variation_data = $product_variation->get_data();
+			$variations_data[$i] = (object) [
+			    "id" => $variation->ID,
+				"sku" => $variation_data['sku'],
+				"description" => $variation_data['description']
+			];
+
+		    // get variation featured image
+		    $image_id = $product_variation->get_image_id();
+
+		    if (!empty($image_id)) {
+			    $variations_data[$i]->images = (object) [
+				    "id" => intval($image_id),
+					"alt" =>  get_post_meta($image_id, '_wp_attachment_image_alt', TRUE ),
+				];
+		    } else {
+		    	$variations_data[$i]->images = (object) [];
+		    }
+	    }
+		$i++;
+	}
+
+	return $variations_data;
+}
+
+/**
  * API End Point not found
  *
  * @param object $data Name of Category for searching and Parent Category name.
@@ -645,6 +702,14 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/get_products_by_slugs', array(
 		'methods'  => WP_REST_Server::READABLE,
 		'callback' => 'get_products_by_slugs',
+		'permission_callback' => function () {return get_api_user();}
+	));
+});
+
+add_action('rest_api_init', function () {
+	register_rest_route('wc/v3/gp_products', '/get_variations_by_parent_ids/(?P<id>\d+)', array(
+		'methods'  => WP_REST_Server::READABLE,
+		'callback' => 'get_variations_by_parent_ids',
 		'permission_callback' => function () {return get_api_user();}
 	));
 });
