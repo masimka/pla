@@ -485,6 +485,106 @@ function get_variations_by_parent_ids($data) {
 }
 
 /**
+ * API End Point set inventory data by slug
+ *
+ * @param object $data data of slugs.
+ * @return bool true or false
+ */
+function set_inventory_by_slug($data) {
+	$product_data = $data->get_params('JSON');
+	
+	if (empty($product_data)) {
+		$error = "The products are not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	$variations_data = array();
+
+	foreach ($product_data as $pd) {
+		$product = get_page_by_path( $pd['slug'], OBJECT, 'product' );
+		if (!$product->ID) {
+			return false;
+		} 
+
+		// Add product stock
+		update_stock($product->ID, $pd['stock_quantity']);
+
+		// Add product prices
+		$product = wc_get_product($product->ID);
+		update_prices($product, $pd['regular_price'], $pd['sale_price']);
+
+		if (!empty($pd['variations'])) {
+			foreach ($pd['variations'] as $pv) {
+				$id = wc_get_product_id_by_sku( $pv['sku'] );
+				if (!empty($id)) {
+
+					// Add variation product stock
+					update_stock($id, $pv['stock_quantity']);
+
+					// Add product prices
+					$product = wc_get_product($id);
+					update_prices($product, $pv['regular_price'], $pv['sale_price']);
+				} 
+			}
+		}
+	}
+
+	return true;
+}
+
+/**
+ * update_stock function
+ *
+ * @param int $id product id.
+ * @param int $stock_quantity cuantity in stock.
+ */
+function update_stock($id, $stock_quantity) {
+	// Updating the stock quantity
+	update_post_meta($id, '_stock', $stock_quantity);
+
+	// Updating the stock quantity and Updating post term relationship
+	if ($stock_quantity > 0) {
+		update_post_meta($id, '_stock_status', 'instock');
+		wp_set_post_terms($id, 'instock', 'product_visibility', true);
+	} else {
+		update_post_meta($id, '_stock_status', 'outofstock');
+		wp_set_post_terms($id, 'outofstock', 'product_visibility', true);
+	}
+
+	// Clear/refresh the variation cache
+	wc_delete_product_transients($id);
+}
+
+/**
+ * update_stock function
+ *
+ * @param WC_Product $product product data.
+ * @param number $regular_price regular price.
+ * @param number $sale_price sale price.
+ */
+function update_prices($product, $regular_price, $sale_price) {
+	if (empty($regular_price)) return false;
+	
+	$product->set_regular_price($regular_price);
+	
+	// If your product has a Sale price
+	if (!empty($sale_price)) {
+		$product->set_sale_price($sale_price);
+		$new_price = $sale_price;
+	} else {
+		$new_price = $regular_price;
+	}
+	
+	// Set new price
+	$product->set_price($new_price);
+	$product->save();
+
+	// Clear/refresh the variation cache
+	wc_delete_product_transients($product->ID);
+}
+
+/**
  * API End Point not found
  *
  * @param object $data Name of Category for searching and Parent Category name.
@@ -710,6 +810,14 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/get_variations_by_parent_ids/(?P<id>\d+)', array(
 		'methods'  => WP_REST_Server::READABLE,
 		'callback' => 'get_variations_by_parent_ids',
+		'permission_callback' => function () {return get_api_user();}
+	));
+});
+
+add_action('rest_api_init', function () {
+	register_rest_route('wc/v3/gp_products', '/set_inventory_by_slug', array(
+		'methods'  => WP_REST_Server::EDITABLE,
+		'callback' => 'set_inventory_by_slug',
 		'permission_callback' => function () {return get_api_user();}
 	));
 });
