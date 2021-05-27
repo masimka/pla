@@ -394,31 +394,35 @@ function get_products_by_slugs($data) {
 	$products_data = array();
 	$i = 0;
 	foreach ($slugs as $s) {
-		$product = get_page_by_path( $s['slug'], OBJECT, 'product' );
-		$product = new WC_product($product->ID);
-
-		if (!empty($product)) {
+		$prod = get_page_by_path( $s['slug'], OBJECT, 'product' );
+		if (!empty($prod->ID)) {
+			$product = new WC_product($prod->ID);
 			$products_data[$i] = (object) [
-			    "id" => $product->ID,
+			    "id" => $prod->ID,
 				"slug" => $s['slug'],
 				"sku" => $product->sku
 			];
 
 			$image_id = $product->get_image_id();
 
-			$products_data[$i]->images[] = (object) [
-			    "id" => intval($image_id),
-				"alt" =>  get_post_meta($image_id, '_wp_attachment_image_alt', TRUE ),
-			];
-			
-			$image_ids = $product->get_gallery_image_ids($product->ID);
-			foreach($image_ids as $iid) {
-	          	// Display the image URL
-	        	$products_data[$i]->images[] = (object) [
-				    "id" => $iid,
-					"alt" =>  get_post_meta($iid, '_wp_attachment_image_alt', TRUE ),
+			if ($image_id) {
+				$products_data[$i]->images[] = (object) [
+				    "id" => intval($image_id),
+					"alt" =>  get_post_meta($image_id, '_wp_attachment_image_alt', TRUE ),
 				];
-	        }
+			}
+			
+			$image_ids = $product->get_gallery_image_ids($prod->ID);
+
+			if (!empty($image_ids)) {
+				foreach($image_ids as $iid) {
+		          	// Display the image URL
+		        	$products_data[$i]->images[] = (object) [
+					    "id" => $iid,
+						"alt" =>  get_post_meta($iid, '_wp_attachment_image_alt', TRUE ),
+					];
+		        }
+			}
 		}
 		$i++;
 	}
