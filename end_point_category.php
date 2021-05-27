@@ -385,7 +385,6 @@ function add_new_brand($data) {
  */
 function get_products_by_slugs($data) {
 	$slugs = $data->get_params('JSON');
-	
 	if (empty($slugs)) {
 		$error = "The products are not found";
 		$code = 1;
@@ -800,7 +799,7 @@ add_action('rest_api_init', function () {
 
 add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/get_products_by_slugs', array(
-		'methods'  => WP_REST_Server::READABLE,
+		'methods'  => WP_REST_Server::EDITABLE,
 		'callback' => 'get_products_by_slugs',
 		'permission_callback' => function () {return get_api_user();}
 	));
