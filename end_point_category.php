@@ -645,7 +645,8 @@ add_filter( 'woocommerce_rest_check_permissions',
 		if ($post_type == 'product_tag' ||
 			$post_type == 'attributes' ||
 			strpos($post_type, 'pa_') !== false ||
-			($context == 'batch' && $post_type == 'product')
+			($context == 'batch' && $post_type == 'product') ||
+			($context == 'batch' && $post_type == 'product_variation')
 		) {
 		    return get_api_user();
 		}
