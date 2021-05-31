@@ -378,6 +378,54 @@ function add_new_brand($data) {
 }
 
 /**
+ * API End Point assign brands to product
+ *
+ * @param object $data data of brand to insert.
+ * @return array of inserted id`s data
+ */
+function add_new_brand_body($data) {
+	$brands = $data->get_params('JSON');
+
+	if (empty($brands)) {
+		$error = "The brand data can`t be null";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	$brands_created = array();
+	foreach ($brands as $brand) {
+		if ($brand['name'] != "") {
+			$args = array(
+				'name' => $brand['name']
+			);
+
+			if (!empty($brand['description'])) $args['description'] = $brand['description'];
+			if (!empty($brand['parent']) && is_integer($brand['parent']) && $brand['parent'] > 0) $args['parent'] = $brand['parent'];
+			if (!empty($brand['slug'])) $args['slug'] = $brand['slug'];
+
+			$term = wp_insert_term($brand['name'], 'product_brand', $args);
+
+			if (!empty($term->error_data['term_exists'])) {
+				$term =  get_term_by( 'id', $term->error_data['term_exists'], 'product_brand' );
+			} else {
+				$term =  get_term_by( 'id', $term['term_id'], 'product_brand' );
+			}
+
+			$brands_created[] = (object) [
+			    "id" => $term->term_id,
+				"name" => $term->name,
+				"slug" => $term->slug,
+				"description" => $term->description,
+				"parent" => $term->parent
+			];
+		}
+	}
+
+	return $brands_created;
+
+}
+
+/**
  * API End Point get product data by slugs
  *
  * @param object $data data of brand to insert.
@@ -400,7 +448,7 @@ function get_products_by_slugs($data) {
 			$products_data[$i] = (object) [
 			    "id" => $prod->ID,
 				"slug" => $s['slug'],
-				"sku" => $product->sku
+				"sku" => $product->get_sku()
 			];
 
 			$image_id = $product->get_image_id();
@@ -799,6 +847,14 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/add_new_brand/(?P<brand>.+)', array(
 		'methods'  => WP_REST_Server::EDITABLE,
 		'callback' => 'add_new_brand',
+		'permission_callback' => function () {return get_api_user();}
+	));
+});
+
+add_action('rest_api_init', function () {
+	register_rest_route('wc/v3/gp_products', '/add_new_brand_body', array(
+		'methods'  => WP_REST_Server::EDITABLE,
+		'callback' => 'add_new_brand_body',
 		'permission_callback' => function () {return get_api_user();}
 	));
 });
