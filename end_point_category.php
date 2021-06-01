@@ -445,7 +445,7 @@ function get_products_by_slugs($data) {
 		$prod = get_page_by_path( $s['slug'], OBJECT, 'product' );
 		if (!empty($prod->ID)) {
 			$product = new WC_product($prod->ID);
-			$products_data[$i] = (object) [
+			$temp_data = (object) [
 			    "id" => $prod->ID,
 				"slug" => $s['slug'],
 				"sku" => $product->get_sku()
@@ -454,7 +454,7 @@ function get_products_by_slugs($data) {
 			$image_id = $product->get_image_id();
 
 			if ($image_id) {
-				$products_data[$i]->images[] = (object) [
+				$temp_data->images[] = (object) [
 				    "id" => intval($image_id),
 					"alt" =>  get_post_meta($image_id, '_wp_attachment_image_alt', TRUE ),
 				];
@@ -465,12 +465,14 @@ function get_products_by_slugs($data) {
 			if (!empty($image_ids)) {
 				foreach($image_ids as $iid) {
 		          	// Display the image URL
-		        	$products_data[$i]->images[] = (object) [
+		        	$temp_data->images[] = (object) [
 					    "id" => $iid,
 						"alt" =>  get_post_meta($iid, '_wp_attachment_image_alt', TRUE ),
 					];
 		        }
 			}
+
+			$products_data[] = $temp_data;
 		}
 		$i++;
 	}
