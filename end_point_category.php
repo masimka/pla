@@ -587,6 +587,40 @@ function set_inventory_by_slug($data) {
 }
 
 /**
+ * API End Point set inventory y price data by sku
+ *
+ * @param object $data data of product.
+ * @return bool true or false
+ */
+function set_prices_inventory_by_sku($data) {
+	$product_data = $data->get_params('JSON');
+	
+	if (empty($product_data)) {
+		$error = "The products are not found";
+		$code = 1;
+		return api_error_404($error, $code);
+	}
+
+	$variations_data = array();
+
+	foreach ($product_data as $pd) {
+		$id = wc_get_product_id_by_sku( $pd['sku'] );;
+		if (!$id) {
+			return false;
+		} 
+
+		// Add product stock
+		update_stock($id, $pd['InventoryQuantity']);
+
+		// Add product prices
+		$product = wc_get_product($id);
+		update_prices($product, $pd['CompareAtPrice'], $pd['Price']);
+	}
+
+	return true;
+}
+
+/**
  * update_stock function
  *
  * @param int $id product id.
@@ -687,7 +721,7 @@ function add_brands_to_product($response, $object, $request) {
 		$response->data['brands'] = array();
 	}
 
-	return $response; 
+	return $response;
 }
 
 add_filter( 'woocommerce_rest_check_permissions',
@@ -881,6 +915,14 @@ add_action('rest_api_init', function () {
 	register_rest_route('wc/v3/gp_products', '/set_inventory_by_slug', array(
 		'methods'  => WP_REST_Server::EDITABLE,
 		'callback' => 'set_inventory_by_slug',
+		'permission_callback' => function () {return get_api_user();}
+	));
+});
+
+add_action('rest_api_init', function () {
+	register_rest_route('wc/v3/gp_products', '/set_prices_inventory_by_sku', array(
+		'methods'  => WP_REST_Server::EDITABLE,
+		'callback' => 'set_prices_inventory_by_sku',
 		'permission_callback' => function () {return get_api_user();}
 	));
 });
