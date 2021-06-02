@@ -604,7 +604,7 @@ function set_prices_inventory_by_sku($data) {
 	$variations_data = array();
 
 	foreach ($product_data as $pd) {
-		$id = wc_get_product_id_by_sku( $pd['sku'] );;
+		$id = wc_get_product_id_by_sku( $pd['sku'] );
 		if (!$id) {
 			return false;
 		} 
