@@ -605,16 +605,14 @@ function set_prices_inventory_by_sku($data) {
 
 	foreach ($product_data as $pd) {
 		$id = wc_get_product_id_by_sku( $pd['sku'] );
-		if (!$id) {
-			return false;
-		} 
+		if (!empty($id)) {
+			// Add product stock
+			update_stock($id, $pd['InventoryQuantity']);
 
-		// Add product stock
-		update_stock($id, $pd['InventoryQuantity']);
-
-		// Add product prices
-		$product = wc_get_product($id);
-		update_prices($product, $pd['CompareAtPrice'], $pd['Price']);
+			// Add product prices
+			$product = wc_get_product($id);
+			update_prices($product, $pd['CompareAtPrice'], $pd['Price']);
+		}
 	}
 
 	return true;
